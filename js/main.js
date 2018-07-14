@@ -1,17 +1,70 @@
+
 let restaurants,
   neighborhoods,
   cuisines
 var newMap
-var markers = []
+var markers = [];
+
+const MAPBOX_API_KEY = "pk.eyJ1IjoiaXN0aWFxdWUxOCIsImEiOiJjampjbzhxYnEyM3ZlM3Z0ZWRncHVsOXEyIn0.G92w014uYkp64EiGScJH8Q";
+
+/**
+* Register service worker
+*/
+const registerServiceWorker = () => {
+  if (!navigator.serviceWorker) return;
+
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    console.log(`Service worker registered.. ${JSON.stringify(reg)}`);
+
+    if (!navigator.serviceWorker.controller) {
+      return;
+    }
+
+    if (reg.waiting) {
+      updateReady(reg.waiting);
+      return;
+    }
+
+    if (reg.installing) {
+      trackInstalling(reg.installing);
+      return;
+    }
+
+    reg.addEventListener('updatefound', () => {
+      trackInstalling(reg.installing);
+    });
+  }).catch(err => {
+    console.error(`Error while registering service worker ${err}`);
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+};
+
+trackInstalling = (sw) => {
+  sw.addEventListener('statechange', () => {
+    if (sw.state == 'installed') {
+      this.updateReady(sw);
+    }
+  });
+};
+
+updateReady = (sw) => {
+  sw.postMessage({ action: 'skipWaiting' });
+};
+
 
 /**
  * Fetch neighborhoods and cuisines as soon as the page is loaded.
  */
 document.addEventListener('DOMContentLoaded', (event) => {
+  registerServiceWorker();
   initMap(); // added 
   fetchNeighborhoods();
   fetchCuisines();
 });
+
 
 /**
  * Fetch all neighborhoods and set their HTML.
@@ -25,7 +78,7 @@ fetchNeighborhoods = () => {
       fillNeighborhoodsHTML();
     }
   });
-}
+};
 
 /**
  * Set neighborhoods HTML.
@@ -38,7 +91,7 @@ fillNeighborhoodsHTML = (neighborhoods = self.neighborhoods) => {
     option.value = neighborhood;
     select.append(option);
   });
-}
+};
 
 /**
  * Fetch all cuisines and set their HTML.
@@ -52,7 +105,7 @@ fetchCuisines = () => {
       fillCuisinesHTML();
     }
   });
-}
+};
 
 /**
  * Set cuisines HTML.
@@ -66,19 +119,19 @@ fillCuisinesHTML = (cuisines = self.cuisines) => {
     option.value = cuisine;
     select.append(option);
   });
-}
+};
 
 /**
  * Initialize leaflet map, called from HTML.
  */
 initMap = () => {
   self.newMap = L.map('map', {
-        center: [40.722216, -73.987501],
-        zoom: 12,
-        scrollWheelZoom: false
-      });
+    center: [40.722216, -73.987501],
+    zoom: 12,
+    scrollWheelZoom: false
+  });
   L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.jpg70?access_token={mapboxToken}', {
-    mapboxToken: '<your MAPBOX API KEY HERE>',
+    mapboxToken: MAPBOX_API_KEY,
     maxZoom: 18,
     attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
       '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
@@ -87,7 +140,7 @@ initMap = () => {
   }).addTo(newMap);
 
   updateRestaurants();
-}
+};
 /* window.initMap = () => {
   let loc = {
     lat: 40.722216,
@@ -122,7 +175,7 @@ updateRestaurants = () => {
       fillRestaurantsHTML();
     }
   })
-}
+};
 
 /**
  * Clear current restaurants, their HTML and remove their map markers.
@@ -139,7 +192,7 @@ resetRestaurants = (restaurants) => {
   }
   self.markers = [];
   self.restaurants = restaurants;
-}
+};
 
 /**
  * Create all restaurants HTML and add them to the webpage.
@@ -150,21 +203,24 @@ fillRestaurantsHTML = (restaurants = self.restaurants) => {
     ul.append(createRestaurantHTML(restaurant));
   });
   addMarkersToMap();
-}
+};
 
 /**
  * Create restaurant HTML.
  */
 createRestaurantHTML = (restaurant) => {
   const li = document.createElement('li');
-
+  const info = `Image of restaurant name ${restaurant.name}, located nearby ${restaurant.neighborhood}, address ${restaurant.address}`;
   const image = document.createElement('img');
+  image.alt = info;
   image.className = 'restaurant-img';
   image.src = DBHelper.imageUrlForRestaurant(restaurant);
+  li.setAttribute('aria-label', info);
   li.append(image);
 
   const name = document.createElement('h1');
   name.innerHTML = restaurant.name;
+  name.setAttribute('aria-label', restaurant.name);
   li.append(name);
 
   const neighborhood = document.createElement('p');
@@ -178,10 +234,14 @@ createRestaurantHTML = (restaurant) => {
   const more = document.createElement('a');
   more.innerHTML = 'View Details';
   more.href = DBHelper.urlForRestaurant(restaurant);
+  more.setAttribute('role', 'button');
+  more.setAttribute('aria-label', info);
+  more.setAttribute('aria-pressed', 'false');
+
   li.append(more)
 
   return li
-}
+};
 
 /**
  * Add markers for current restaurants to the map.
@@ -196,8 +256,7 @@ addMarkersToMap = (restaurants = self.restaurants) => {
     }
     self.markers.push(marker);
   });
-
-} 
+};
 /* addMarkersToMap = (restaurants = self.restaurants) => {
   restaurants.forEach(restaurant => {
     // Add marker to the map
@@ -207,5 +266,26 @@ addMarkersToMap = (restaurants = self.restaurants) => {
     });
     self.markers.push(marker);
   });
-} */
+}; */
 
+/*Accesibility*/
+
+handleBtnClick = (event) => {
+  toggleButton(event.target);
+};
+
+handleBtnKeyPress = (event) => {
+  // Check to see if space or enter were pressed
+  if (event.key === " " || event.key === "Enter") {
+    // Prevent the default action to stop scrolling when space is pressed
+    event.preventDefault();
+    toggleButton(event.target);
+  }
+};
+
+toggleButton = (element) => {
+  // Check to see if the button is pressed
+  var pressed = (element.getAttribute("aria-pressed") === "true");
+  // Change aria-pressed to the opposite state
+  element.setAttribute("aria-pressed", !pressed);
+};
