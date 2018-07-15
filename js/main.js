@@ -1,4 +1,3 @@
-
 let restaurants,
   neighborhoods,
   cuisines
@@ -211,14 +210,18 @@ fillRestaurantsHTML = (restaurants = self.restaurants) => {
 createRestaurantHTML = (restaurant) => {
   const li = document.createElement('li');
   const info = `Image of restaurant name ${restaurant.name}, located nearby ${restaurant.neighborhood}, address ${restaurant.address}`;
+
   const image = document.createElement('img');
-  image.alt = info;
+  const imgsrc = DBHelper.imageUrlForRestaurant(restaurant);
   image.className = 'restaurant-img';
-  image.src = DBHelper.imageUrlForRestaurant(restaurant);
-  li.setAttribute('aria-label', info);
+  image.src = `/img/${imgsrc[1]}`;
+  image.srcset = `/img/${imgsrc[1]} 1x, /img/${imgsrc[0]} 2x`;
+  image.alt = info;
+  image.tabIndex = 0;
+
   li.append(image);
 
-  const name = document.createElement('h1');
+  const name = document.createElement('h2');
   name.innerHTML = restaurant.name;
   name.setAttribute('aria-label', restaurant.name);
   li.append(name);
@@ -235,7 +238,7 @@ createRestaurantHTML = (restaurant) => {
   more.innerHTML = 'View Details';
   more.href = DBHelper.urlForRestaurant(restaurant);
   more.setAttribute('role', 'button');
-  more.setAttribute('aria-label', info);
+  more.setAttribute('aria-label', 'View Details');
   more.setAttribute('aria-pressed', 'false');
 
   li.append(more)

@@ -15,9 +15,9 @@
 </head>
 
 <body class="inside flex-container">
-  <a href="#restaurant-container" class="skip-link" style="color:white;">Skip map section to restaurant information</a>
+  <a href="#restaurant-container" class="skip-link" tabindex="0" aria-label="Skip map section to restaurant information">Skip map section to restaurant information</a>
   <!-- Beginning header -->
-  <header role="banner">
+  <header>
     <!-- Beginning nav -->
     <nav>
       <h1>
@@ -25,7 +25,7 @@
       </h1>
     </nav>
     <!-- Beginning breadcrumb -->
-    <ul id="breadcrumb" role="breadcrumb">
+    <ul id="breadcrumb" role="breadcrumb" aria-label="Breadcrumb">
       <li>
         <a href="/">Home</a>
       </li>
@@ -36,19 +36,19 @@
   <!-- End header -->
 
   <!-- Beginning main -->
-  <main id="maincontent">
+  <main id="maincontent" role="main">
     <!-- Beginning map -->
     <section id="map-container">
-      <aside id="map" aria-label="Showing restaurants location on map"></aside>
+      <aside id="map" role="application" aria-label="Showing restaurants location on map"></aside>
     </section>
     <!-- End map -->
     <!-- Beginning restaurant -->
     <section id="restaurant-container">
-      <h1 id="restaurant-name"></h1>
-      <img id="restaurant-img">
+      <h2 id="restaurant-name" tabindex="0"></h2>
+      <img id="restaurant-img" tabindex="0">
       <p id="restaurant-cuisine"></p>
-      <p id="restaurant-address"></p>
-      <table id="restaurant-hours"></table>
+      <p id="restaurant-address" tabindex="0"></p>
+      <table id="restaurant-hours" tabindex="0" aria-label="Restaurant Timings"></table>
     </section>
     <!-- end restaurant -->
     <!-- Beginning reviews -->
@@ -60,9 +60,9 @@
   <!-- End main -->
 
   <!-- Beginning footer -->
-  <footer id="footer" role="contentinfo">
+  <footer id="footer">
     Copyright (c) 2017
-    <a href="/">
+    <a href="/" tabindex="0">
       <strong>Restaurant Reviews</strong>
     </a> All Rights Reserved.
   </footer>
