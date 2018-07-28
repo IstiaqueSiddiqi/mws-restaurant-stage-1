@@ -8,27 +8,102 @@ class DBHelper {
    * Change this to restaurants.json file location on your server.
    */
   static get DATABASE_URL() {
-    const port = 8000 // Change this to your server port
-    return `http://localhost:${port}/data/restaurants.json`;
+    const port = 1337 // Change this to your server port
+    return `http://localhost:${port}/restaurants`;
   }
+
+  /**
+   * Manage indexdb database connection
+   */
+  static openDB() {
+    const DB_NAME = `restaurants reviews`;
+    const RESTAURANT_STORE = `restaurants`;
+    const REVIEW_STORE = `reviews`;
+    let DB_VERSION = 1;
+
+    // If the browser doesn't support indexedDB,
+    // we don't care about having a database
+    if (!('indexedDB' in window)) {
+      return null;
+    }
+
+    return idb.open(DB_NAME, DB_VERSION, (upgradeDb) => {
+      if (!upgradeDb.objectStoreNames.contains(RESTAURANT_STORE)) {
+        const store = upgradeDb.createObjectStore(RESTAURANT_STORE, { keyPath: 'id' });
+        store.createIndex('id', 'id');
+      }
+    });
+  };
+
 
   /**
    * Fetch all restaurants.
    */
   static fetchRestaurants(callback) {
-    let xhr = new XMLHttpRequest();
-    xhr.open('GET', DBHelper.DATABASE_URL);
-    xhr.onload = () => {
-      if (xhr.status === 200) { // Got a success response from server!
-        const json = JSON.parse(xhr.responseText);
-        const restaurants = json.restaurants;
+    DBHelper.getServerData().then(serverData => {
+      // update UI
+      callback(null, serverData);
+      // save data locally
+      DBHelper.saveRestaurantLocally(serverData).then(d=>{console.log("dkas", d)}).catch(error => {
+        console.error(`Failed to save data locally: ${error}`);
+      });
+    }).catch(error => {
+      // Oops!. Got an error from server
+      console.log('Unable to fetch data from server');
+      DBHelper.getSavedRestaurantData().then(restaurants => { 
         callback(null, restaurants);
-      } else { // Oops!. Got an error from server.
-        const error = (`Request failed. Returned status of ${xhr.status}`);
-        callback(error, null);
+      })
+    });
+  }
+
+  /**
+   * Fetch data from network
+   */
+  static getServerData() {
+    return new Promise((resolve, reject) => {
+      fetch(DBHelper.DATABASE_URL).then(response => {
+        if (!response.ok) { // Didn't get a success response from server!  
+        reject(Error(response.statusText));
+        }
+        resolve(response.json());
+      });
+    });
+  }
+
+  static saveRestaurantLocally(restaurants) {
+    return new Promise((resolve, reject) => {
+      const RESTAURANT_STORE = `restaurants`;
+      if (!('indexedDB' in window)) {
+        reject(null);
       }
-    };
-    xhr.send();
+      let promise = DBHelper.openDB().then(db => {
+        const tx = db.transaction(RESTAURANT_STORE, 'readwrite');
+        const store = tx.objectStore(RESTAURANT_STORE);
+        return Promise.all(restaurants.map(restaurant =>
+          store.put(restaurant))).catch(() => {
+            tx.abort();
+            throw Error('Restaurants were not added to the store');
+          }).then(() => {
+            console.log(`Restaurants added`);
+          });
+        resolve(promise);
+      });
+    });
+  }
+
+  static getSavedRestaurantData() {
+    return new Promise((resolve, reject) => {
+      const RESTAURANT_STORE = `restaurants`;
+      if (!('indexedDB' in window)) { 
+        reject(null); 
+      }
+      let promise =  DBHelper.openDB().then(db => {
+        const tx = db.transaction(RESTAURANT_STORE, 'readonly');
+        const store = tx.objectStore(RESTAURANT_STORE);
+        return store.getAll();
+      });
+      resolve(promise);
+    });
   }
 
   /**
@@ -72,6 +147,7 @@ class DBHelper {
   static fetchRestaurantByNeighborhood(neighborhood, callback) {
     // Fetch all restaurants
     DBHelper.fetchRestaurants((error, restaurants) => {
+
       if (error) {
         callback(error, null);
       } else {
@@ -150,7 +226,7 @@ class DBHelper {
    * Restaurant image URL.
    */
   static imageUrlForRestaurant(restaurant) {
-    return restaurant.photograph;
+    return restaurant.id;
   }
 
   /**
