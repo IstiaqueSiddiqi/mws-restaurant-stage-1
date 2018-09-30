@@ -1,12 +1,15 @@
 const staticCacheName = 'restaurant-v1.0';
 let cacheAssets = [
-    '/',
+    // '/',
+    'manifest.json',
     'index.html',
     'css/styles.css',
+    'css/snackbar.css',
     'https://unpkg.com/leaflet@1.3.1/dist/leaflet.css',
     'data/restaurants.json',
     'js/main.js',
     'js/dbhelper.js',
+    'js/snackbar.js',
     'https://unpkg.com/leaflet@1.3.1/dist/leaflet.js',
     'restaurant.html',
     'img/1.webp',
@@ -64,6 +67,9 @@ self.addEventListener('fetch', (event) => {
                     return new Response(`Failed due to ${err}`);
                 });
             });
+        }).catch(error => {
+            console.error('Error:', error.stack);
+            return;
         })
     );
 });
@@ -87,5 +93,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
     if (event.data.action === 'skipWaiting') {
         self.skipWaiting();
+    }
+});
+
+// listen for background sync
+self.addEventListener('sync', (event) => {
+    // Should be unique for a given sync
+    if (event.tag == 'myFirstSync') {
+        // event.waitUntil(promiseMethod());
+        console.info(`Back Online`);
     }
 });

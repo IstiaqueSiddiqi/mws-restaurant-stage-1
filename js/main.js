@@ -10,7 +10,7 @@ const MAPBOX_API_KEY = "pk.eyJ1IjoiaXN0aWFxdWUxOCIsImEiOiJjampjbzhxYnEyM3ZlM3Z0Z
 * Register service worker
 */
 const registerServiceWorker = () => {
-  if (!navigator.serviceWorker) return;
+  if (!navigator.serviceWorker && !window.SyncManager) return;
 
   navigator.serviceWorker.register('/sw.js').then((reg) => {
     console.log(`Service worker registered.. ${JSON.stringify(reg)}`);
@@ -39,9 +39,15 @@ const registerServiceWorker = () => {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
   });
+
+  // Request a one-off sync:
+  navigator.serviceWorker.ready.then((swRegistration) => {
+    let tagName = 'myFirstSync';
+    return swRegistration.sync.register(tagName);
+  });
 };
 
-trackInstalling = (sw) => {
+const trackInstalling = (sw) => {
   sw.addEventListener('statechange', () => {
     if (sw.state == 'installed') {
       this.updateReady(sw);
@@ -49,7 +55,7 @@ trackInstalling = (sw) => {
   });
 };
 
-updateReady = (sw) => {
+const updateReady = (sw) => {
   sw.postMessage({ action: 'skipWaiting' });
 };
 
@@ -68,7 +74,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
 /**
  * Fetch all neighborhoods and set their HTML.
  */
-fetchNeighborhoods = () => {
+const fetchNeighborhoods = () => {
   DBHelper.fetchNeighborhoods((error, neighborhoods) => {
     if (error) { // Got an error
       console.error(error);
@@ -82,7 +88,7 @@ fetchNeighborhoods = () => {
 /**
  * Set neighborhoods HTML.
  */
-fillNeighborhoodsHTML = (neighborhoods = self.neighborhoods) => {
+const fillNeighborhoodsHTML = (neighborhoods = self.neighborhoods) => {
   const select = document.getElementById('neighborhoods-select');
   neighborhoods.forEach(neighborhood => {
     const option = document.createElement('option');
@@ -95,7 +101,7 @@ fillNeighborhoodsHTML = (neighborhoods = self.neighborhoods) => {
 /**
  * Fetch all cuisines and set their HTML.
  */
-fetchCuisines = () => {
+const fetchCuisines = () => {
   DBHelper.fetchCuisines((error, cuisines) => {
     if (error) { // Got an error!
       console.error(error);
@@ -109,7 +115,7 @@ fetchCuisines = () => {
 /**
  * Set cuisines HTML.
  */
-fillCuisinesHTML = (cuisines = self.cuisines) => {
+const fillCuisinesHTML = (cuisines = self.cuisines) => {
   const select = document.getElementById('cuisines-select');
 
   cuisines.forEach(cuisine => {
@@ -123,7 +129,7 @@ fillCuisinesHTML = (cuisines = self.cuisines) => {
 /**
  * Initialize leaflet map, called from HTML.
  */
-initMap = () => {
+const initMap = () => {
   self.newMap = L.map('map', {
     center: [40.722216, -73.987501],
     zoom: 12,
@@ -156,7 +162,7 @@ initMap = () => {
 /**
  * Update page and map for current restaurants.
  */
-updateRestaurants = () => {
+const updateRestaurants = () => {
   const cSelect = document.getElementById('cuisines-select');
   const nSelect = document.getElementById('neighborhoods-select');
 
@@ -179,7 +185,7 @@ updateRestaurants = () => {
 /**
  * Clear current restaurants, their HTML and remove their map markers.
  */
-resetRestaurants = (restaurants) => {
+const resetRestaurants = (restaurants) => {
   // Remove all restaurants
   self.restaurants = [];
   const ul = document.getElementById('restaurants-list');
@@ -196,7 +202,7 @@ resetRestaurants = (restaurants) => {
 /**
  * Create all restaurants HTML and add them to the webpage.
  */
-fillRestaurantsHTML = (restaurants = self.restaurants) => {
+const fillRestaurantsHTML = (restaurants = self.restaurants) => {
   const ul = document.getElementById('restaurants-list');
   restaurants.forEach(restaurant => {
     ul.append(createRestaurantHTML(restaurant));
@@ -207,15 +213,15 @@ fillRestaurantsHTML = (restaurants = self.restaurants) => {
 /**
  * Create restaurant HTML.
  */
-createRestaurantHTML = (restaurant) => {
+const createRestaurantHTML = (restaurant) => {
   const li = document.createElement('li');
   const info = `Image of restaurant name ${restaurant.name}, located nearby ${restaurant.neighborhood}, address ${restaurant.address}`;
 
   const image = document.createElement('img');
   const imgsrc = DBHelper.imageUrlForRestaurant(restaurant);
   image.className = 'restaurant-img';
-  image.src = `/img/${imgsrc}.webp`;
-  image.srcset = `/img/${imgsrc}.webp 1x, /img/${imgsrc}.jpg 2x`;
+  image.src = `/build/img/${imgsrc}.webp`;
+  image.srcset = `/build/img/${imgsrc}.webp 1x, /build/img/${imgsrc}.jpg 2x`;
   image.alt = info;
   image.tabIndex = 0;
 
@@ -249,7 +255,7 @@ createRestaurantHTML = (restaurant) => {
 /**
  * Add markers for current restaurants to the map.
  */
-addMarkersToMap = (restaurants = self.restaurants) => {
+const addMarkersToMap = (restaurants = self.restaurants) => {
   restaurants.forEach(restaurant => {
     // Add marker to the map
     const marker = DBHelper.mapMarkerForRestaurant(restaurant, self.newMap);
@@ -273,11 +279,11 @@ addMarkersToMap = (restaurants = self.restaurants) => {
 
 /*Accesibility*/
 
-handleBtnClick = (event) => {
+const handleBtnClick = (event) => {
   toggleButton(event.target);
 };
 
-handleBtnKeyPress = (event) => {
+const handleBtnKeyPress = (event) => {
   // Check to see if space or enter were pressed
   if (event.key === " " || event.key === "Enter") {
     // Prevent the default action to stop scrolling when space is pressed
@@ -286,9 +292,48 @@ handleBtnKeyPress = (event) => {
   }
 };
 
-toggleButton = (element) => {
+const toggleButton = (element) => {
   // Check to see if the button is pressed
   var pressed = (element.getAttribute("aria-pressed") === "true");
   // Change aria-pressed to the opposite state
   element.setAttribute("aria-pressed", !pressed);
 };
+
+
+const isOnline = (event) => {
+  let toastMsg;
+  if (event.type == "offline") {
+    console.log(`You lost connection.`);
+    toastMsg = `You lost connection.`
+  }
+
+  if (event.type == "online") {
+    console.log(`You are now online.`);
+    toastMsg = `You are now online.`
+    DBHelper.syncOutBoxData().then(outBoxData => {
+      if (outBoxData.length > 0) {
+        outBoxData.forEach(async (data) => {
+          console.info(`Syncing OutBox Data: ${JSON.stringify(data)}`);
+          let createdAt = data.createdAt;
+          let response;
+          response = await DBHelper.addReview(data);
+          console.info(`Uploaded pending request ${JSON.stringify(response)}`);
+          response = await DBHelper.clearOutBoxData(createdAt)
+          console.info(`Removed data from Outbox: ${response}`);
+        });
+      }
+    }).catch(error => {
+      console.error('outBoxData', error.stack);
+    });
+  }
+  
+  Snackbar.show({ 
+    text: toastMsg, 
+    actionText: 'OK', 
+    actionTextColor: '#f44336',
+    textColor: '#fff',
+    pos: 'bottom-center'	
+  });
+}
+window.addEventListener('online', isOnline);
+window.addEventListener('offline', isOnline);

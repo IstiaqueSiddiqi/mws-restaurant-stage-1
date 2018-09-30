@@ -1,7 +1,20 @@
+
 /**
  * Common database helper functions.
  */
 class DBHelper {
+
+  static get RESTAURANT_STORE() {
+    return `Restaurants`;
+  }
+
+  static get REVIEW_STORE() {
+    return `Reviews`;
+  }
+
+  static get OFFLINE_STORE() {
+    return `Outbox`;
+  }
 
   /**
    * Database URL.
@@ -9,16 +22,14 @@ class DBHelper {
    */
   static get DATABASE_URL() {
     const port = 1337 // Change this to your server port
-    return `http://localhost:${port}/restaurants`;
+    return `http://localhost:${port}`;
   }
 
   /**
    * Manage indexdb database connection
    */
   static openDB() {
-    const DB_NAME = `restaurants reviews`;
-    const RESTAURANT_STORE = `restaurants`;
-    const REVIEW_STORE = `reviews`;
+    const DB_NAME = `Restaurants Reviews`;
     let DB_VERSION = 1;
 
     // If the browser doesn't support indexedDB,
@@ -28,9 +39,13 @@ class DBHelper {
     }
 
     return idb.open(DB_NAME, DB_VERSION, (upgradeDb) => {
-      if (!upgradeDb.objectStoreNames.contains(RESTAURANT_STORE)) {
-        const store = upgradeDb.createObjectStore(RESTAURANT_STORE, { keyPath: 'id' });
-        store.createIndex('id', 'id');
+      if (!upgradeDb.objectStoreNames.contains(DBHelper.RESTAURANT_STORE)) {
+        const restaurant_store = upgradeDb.createObjectStore(DBHelper.RESTAURANT_STORE, { keyPath: 'id' });
+        restaurant_store.createIndex('id', 'id');
+        const reviews_store = upgradeDb.createObjectStore(DBHelper.REVIEW_STORE, { keyPath: 'id' });
+        reviews_store.createIndex('id', 'id');
+        const outbox_data = upgradeDb.createObjectStore(DBHelper.OFFLINE_STORE, { keyPath: 'createdAt' });
+        outbox_data.createIndex('restaurant_id', 'restaurant_id');
       }
     });
   };
@@ -40,69 +55,245 @@ class DBHelper {
    * Fetch all restaurants.
    */
   static fetchRestaurants(callback) {
-    DBHelper.getServerData().then(serverData => {
+    DBHelper.getAllRestaurants().then(restaurants => {
       // update UI
-      callback(null, serverData);
+      callback(null, restaurants);
       // save data locally
-      DBHelper.saveRestaurantLocally(serverData).then(d=>{console.log("dkas", d)}).catch(error => {
-        console.error(`Failed to save data locally: ${error}`);
+      DBHelper.saveRestaurantLocally(restaurants).then(data => {
+        console.log(`Fetched all restaurants data from server`)
+      }).catch(error => {
+        console.error(`Failed to save restaurants locally: ${error.stack}`);
       });
     }).catch(error => {
       // Oops!. Got an error from server
-      console.log('Unable to fetch data from server');
-      DBHelper.getSavedRestaurantData().then(restaurants => { 
+      console.log(`Unable to fetch restaurants from server: ${error.stack}`);
+      DBHelper.getSavedRestaurantData().then(restaurants => {
         callback(null, restaurants);
       })
+    });
+  }
+
+  static getAllRestaurants() {
+    return new Promise((resolve, reject) => {
+      const apiEndpoint = `${DBHelper.DATABASE_URL}/restaurants`;
+      DBHelper.getServerData(apiEndpoint).then(response => {
+        return resolve(response);
+      }).catch(error => {
+        return reject(error);
+      })
+    });
+  }
+
+  static getRestaurantById(restaurant_id) {
+    return new Promise((resolve, reject) => {
+      const apiEndpoint = `${DBHelper.DATABASE_URL}/restaurants/${restaurant_id}`;
+      DBHelper.getServerData(apiEndpoint).then(response => {
+        return resolve(response);
+      }).catch(error => {
+        return reject(error);
+      })
+    });
+  }
+
+  static getRestaurantReviewById(restaurant_id) {
+    return new Promise((resolve, reject) => {
+      const apiEndpoint = `${DBHelper.DATABASE_URL}/reviews/?restaurant_id=${restaurant_id}`;
+      DBHelper.getServerData(apiEndpoint).then(response => {
+        return resolve(response);
+      }).catch(error => {
+        return reject(error);
+      })
+    });
+  }
+
+  static addReview(review) {
+    return new Promise((resolve, reject) => {
+      const apiEndpoint = `${DBHelper.DATABASE_URL}/reviews/`;
+      DBHelper.mutateData(apiEndpoint, 'POST', review).then(response => {
+        console.info(`Successfully submitted review`);
+        // save data locally
+        DBHelper.saveRestaurantReviews(response, DBHelper.REVIEW_STORE).then(review => {
+          console.info(`Review saved for offline use`);
+          return resolve(response);
+        }).catch(error => {
+          console.error(`Failed to save review: ${error.stack}`);
+          return resolve(response);
+        });
+      }).catch(error => {
+        console.info(`No internet, failed to upload review: ${error.stack}`);
+        DBHelper.saveRestaurantReviews(review, DBHelper.OFFLINE_STORE).then(resp => {
+          console.log(`Review will be uploaded automatically when connected to internet`);
+          Snackbar.show({
+            text: `Not connected, Review will be uploaded once re-connected!`,
+            actionText: 'OK',
+            textColor: '#fff',
+            actionTextColor: '#f44336',
+            pos: 'bottom-center'
+          });
+          return resolve(review);
+        }).catch(error => {
+          console.error(`Failed to save review: ${error.stack}`);
+          return reject(error);
+        });
+      });
+    });
+  }
+
+  static mutateData(url, HttpMethod, object) {
+    return new Promise((resolve, reject) => {
+      fetch(url, {
+        method: HttpMethod,
+        body: JSON.stringify(object),
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }).then(response => response.json()).then(response => {
+        return resolve(response);
+      }).catch(error => {
+        console.log('1', error.stack);
+        return reject(error);
+      })
+    });
+  }
+
+  static fetchRestaurantReviews(restaurant, callback) {
+    DBHelper.getRestaurantReviewById(restaurant.id).then(reviews => {
+      // update UI
+      callback(null, reviews);
+      // save data locally
+      DBHelper.saveRestaurantReviews(reviews, DBHelper.REVIEW_STORE).then(data => {
+        console.log(`Review from Server`);
+      }).catch(error => {
+        console.error(`Failed to save review locally: ${error.stack}`);
+      });
+    }).catch(error => {
+      // Oops!. Got an error from server
+      console.log(`Unable to fetch review from server: ${error.stack}`);
+      Snackbar.show({
+        text: `You lost connection.`,
+        actionText: 'OK',
+        actionTextColor: '#f44336',
+        textColor: '#fff',
+        pos: 'bottom-center'
+      });
+      DBHelper.getSavedReview(restaurant.id).then(reviews => {
+        callback(null, reviews);
+      })
+    });
+  }
+
+  static getSavedReview(restaurant_id) {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) {
+        return reject(null);
+      }
+
+      if (!restaurant_id) {
+        let promise = DBHelper.openDB().then(db => {
+          const tx = db.transaction(DBHelper.REVIEW_STORE, 'readonly');
+          const reviews_store = tx.objectStore(DBHelper.REVIEW_STORE);
+          return reviews_store.getAll();
+        });
+        return resolve(promise);
+      } else {
+        let promise = DBHelper.openDB().then(db => {
+          const tx = db.transaction(DBHelper.REVIEW_STORE, 'readonly');
+          const reviews_store = tx.objectStore(DBHelper.REVIEW_STORE);
+          return reviews_store.get(restaurant_id);
+        });
+        return resolve(promise);
+      }
     });
   }
 
   /**
    * Fetch data from network
    */
-  static getServerData() {
+  static getServerData(url) {
     return new Promise((resolve, reject) => {
-      fetch(DBHelper.DATABASE_URL).then(response => {
+      fetch(url, { mode: 'cors' }).then(response => {
         if (!response.ok) { // Didn't get a success response from server!  
-        reject(Error(response.statusText));
+          return reject(Error(response.statusText));
         }
-        resolve(response.json());
+        return resolve(response.json());
+      }).catch(error => {
+        console.log('Request failed', error.stack);
+        return reject(error);
       });
     });
   }
 
   static saveRestaurantLocally(restaurants) {
+    if (!Array.isArray(restaurants)) {
+      let restaurant = [];
+      restaurant.push(restaurants);
+      restaurants = restaurant;
+    }
     return new Promise((resolve, reject) => {
-      const RESTAURANT_STORE = `restaurants`;
       if (!('indexedDB' in window)) {
-        reject(null);
+        return reject(null);
       }
       let promise = DBHelper.openDB().then(db => {
-        const tx = db.transaction(RESTAURANT_STORE, 'readwrite');
-        const store = tx.objectStore(RESTAURANT_STORE);
+        const tx = db.transaction(DBHelper.RESTAURANT_STORE, 'readwrite');
+        const restaurant_store = tx.objectStore(DBHelper.RESTAURANT_STORE);
         return Promise.all(restaurants.map(restaurant =>
-          store.put(restaurant))).catch(() => {
+          restaurant_store.put(restaurant))).catch(() => {
             tx.abort();
             throw Error('Restaurants were not added to the store');
           }).then(() => {
-            console.log(`Restaurants added`);
+            console.log(`Restaurants added to DB`);
           });
-        resolve(promise);
       });
+      return resolve(promise);
     });
   }
 
-  static getSavedRestaurantData() {
+  static saveRestaurantReviews(reviews, storeName) {
+    if (!Array.isArray(reviews)) {
+      let review = [];
+      review.push(reviews);
+      reviews = review;
+    }
     return new Promise((resolve, reject) => {
-      const RESTAURANT_STORE = `restaurants`;
-      if (!('indexedDB' in window)) { 
-        reject(null); 
+      if (!('indexedDB' in window)) {
+        return reject(null);
       }
-      let promise =  DBHelper.openDB().then(db => {
-        const tx = db.transaction(RESTAURANT_STORE, 'readonly');
-        const store = tx.objectStore(RESTAURANT_STORE);
-        return store.getAll();
+      let promise = DBHelper.openDB().then(db => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const reviews_store = tx.objectStore(storeName);
+        return Promise.all(reviews.map(review =>
+          reviews_store.put(review))).catch(() => {
+            tx.abort();
+            throw Error(`Reviews were not added to the ${storeName}`);
+          }).then(() => {
+            console.log(`Reviews added to DB`);
+          });
       });
-      resolve(promise);
+      return resolve(promise);
+    });
+  }
+
+  static getSavedRestaurantData(restaurant_id) {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) {
+        return reject(null);
+      }
+
+      if (!restaurant_id) {
+        let promise = DBHelper.openDB().then(db => {
+          const tx = db.transaction(DBHelper.RESTAURANT_STORE, 'readonly');
+          const restaurant_store = tx.objectStore(DBHelper.RESTAURANT_STORE);
+          return restaurant_store.getAll();
+        });
+        return resolve(promise);
+      } else {
+        let promise = DBHelper.openDB().then(db => {
+          let tx = db.transaction(DBHelper.RESTAURANT_STORE, 'readonly');
+          let restaurant_store = tx.objectStore(DBHelper.RESTAURANT_STORE);
+          return restaurant_store.get(restaurant_id);
+        });
+        return resolve(promise);
+      }
     });
   }
 
@@ -254,5 +445,33 @@ class DBHelper {
     return marker;
   } */
 
-}
+  static syncOutBoxData() {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) {
+        return reject(null);
+      }
 
+      let promise = DBHelper.openDB().then(db => {
+        const tx = db.transaction(DBHelper.OFFLINE_STORE, 'readonly');
+        const reviews_store = tx.objectStore(DBHelper.OFFLINE_STORE);
+        return reviews_store.getAll();
+      });
+      return resolve(promise);
+    });
+  }
+
+  static clearOutBoxData(createdAt) {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window)) {
+        return reject(null);
+      }
+
+      let promise = DBHelper.openDB().then(db => {
+        const tx = db.transaction(DBHelper.OFFLINE_STORE, 'readwrite');
+        const reviews_store = tx.objectStore(DBHelper.OFFLINE_STORE);
+        return reviews_store.delete(createdAt);
+      });
+      return resolve(promise);
+    });
+  }
+}

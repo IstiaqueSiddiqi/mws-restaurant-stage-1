@@ -336,6 +336,58 @@ nav h1 a {
 #reviews-list li #bottom .rating {
   margin-top: 16px;
 }
+#review_form {
+  /* width: 85%; */
+  margin-bottom: 30px;
+}
+form {
+  width: 85%;
+  border: 1px solid #eee;
+}
+fieldset {
+  border: none;
+  background-color: #fff;
+  padding: 16px;  
+  display: flex;
+  flex-wrap: wrap;
+}
+textarea {
+  width: 100%;
+}
+.align-rating {
+  float: left;
+  width: 40%;
+}
+.align-name {
+  float: right;
+  width: 40%;
+}
+label {
+  font-weight: bold;
+}
+#rating-select {
+  height: 35px;
+  width: 100%;
+  /* float: left; */
+}
+#reviewer-name {
+  height: 30px;
+  /* padding: 8px; */
+  width: 100%;
+  /* float: right; */
+}
+#btn-review {
+  width: auto;
+  height: auto;
+  padding: 8px;
+  background-color: orange;
+  color: #fff;
+  border: none;
+  border-bottom: 3px solid #eee
+}
+#btn-review:hover {
+  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+}
 @media only screen and (max-width: 480px) {
   .filter-options select {
     width: 100%;
@@ -372,7 +424,6 @@ nav h1 a {
     width: 26.8%; 
     margin: 8px;
   }
-
 
   .inside header {
     position: fixed;
@@ -421,7 +472,7 @@ nav h1 a {
   #reviews-container {
     padding: 24px;
   }
-  #reviews-list li {
+  #reviews-list li, form {
     width: 100%;
   }
   #restaurant-name {
