@@ -57,7 +57,7 @@ article, aside, canvas, details, figcaption, figure, footer, header, hgroup, men
 }
 #footer {
   background-color: #444;
-  color: #aaa;
+  color: #B1B1B1;
   font-size: 10px;
   letter-spacing: 1px;
   padding: 25px;
@@ -141,7 +141,7 @@ nav h1 a {
 .filter-options {
   width: 100%;
   height: 50px;
-  background-color: #3397DB;
+  background-color: #217CBA;
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -210,7 +210,7 @@ nav h1 a {
 #restaurants-list li a {
   background-color: orange;
   border-bottom: 3px solid #eee;
-  color: #fff;
+  color: #494949;
   display: inline-block;
   font-size: 13px;
   margin: 15px 0 0;
@@ -239,7 +239,7 @@ nav h1 a {
   max-width: 100%;
 }
 #restaurant-name {
-  color: #f18200;
+  color: orange;
   font-family: Arial,sans-serif;
   font-size: 20pt;
   font-weight: 200;
@@ -247,6 +247,7 @@ nav h1 a {
   margin: 15px 0 30px;
   text-transform: uppercase;
   line-height: 1.1;
+  float: left;
 }
 #restaurant-img {
   width: 90%;
@@ -387,6 +388,25 @@ label {
 }
 #btn-review:hover {
   box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+}
+.btn_favourite {
+  float: right;
+  margin: 15px 0 0;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+}
+.btn_favourite:focus {
+  outline: none;
+} 
+.mark {
+  display: none;
+}
+.isFavourite .unmark {
+  display: none;
+}
+.isFavourite .mark {
+  display: block;
 }
 @media only screen and (max-width: 480px) {
   .filter-options select {

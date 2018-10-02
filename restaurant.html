@@ -31,7 +31,7 @@
       </h1>
     </nav>
     <!-- Beginning breadcrumb -->
-    <ul id="breadcrumb" role="breadcrumb" aria-label="Breadcrumb">
+    <ul id="breadcrumb" role="navigation" aria-label="Breadcrumb">
       <li>
         <a href="/">Home</a>
       </li>
@@ -51,6 +51,34 @@
     <!-- Beginning restaurant -->
     <section id="restaurant-container">
       <h2 id="restaurant-name" tabindex="0"></h2>
+      <button class="btn_favourite" tabindex="0">
+        <svg width="24" height="24" class="unmark">
+          <title/>
+          <desc/>
+          <g>
+            <title>background</title>
+            <rect fill="none" id="canvas_background_unmark" height="402" width="582" y="-1" x="-1" />
+          </g>
+          <g>
+            <title>Favourite</title>
+            <path id="common-star-favorite-bookmark-glyph_unmark" fill="#e0e0e0" d="m11.98491,18.13638l-6.79837,4.86362l2.34983,-8.01246l-6.53637,-5.42578l7.94983,-0.06841l3.03508,-8.49335l2.95112,8.56177l8.06397,0l-6.56655,5.47856l2.34983,7.95967l-6.79837,-4.86362l0,0z"
+            />
+          </g>
+        </svg>
+        <svg width="24" height="24" class="mark">
+          <title/>
+          <desc/>
+          <g>
+            <title>background</title>
+            <rect fill="none" id="canvas_background_mark" height="402" width="582" y="-1" x="-1" />
+          </g>
+          <g>
+            <title>Favourite</title>
+            <path id="common-star-favorite-bookmark-glyph_mark" fill="#ff0000" d="m11.98491,18.13638l-6.79837,4.86362l2.34983,-8.01246l-6.53637,-5.42578l7.94983,-0.06841l3.03508,-8.49335l2.95112,8.56177l8.06397,0l-6.56655,5.47856l2.34983,7.95967l-6.79837,-4.86362l0,0z"
+            />
+          </g>
+        </svg>
+      </button>
       <img id="restaurant-img" tabindex="0" inline>
       <p id="restaurant-cuisine"></p>
       <p id="restaurant-address" tabindex="0"></p>

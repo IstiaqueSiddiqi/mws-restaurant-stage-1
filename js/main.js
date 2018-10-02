@@ -3,6 +3,7 @@ let restaurants,
   cuisines
 var newMap
 var markers = [];
+let isConnected = navigator.onLine;
 
 const MAPBOX_API_KEY = "pk.eyJ1IjoiaXN0aWFxdWUxOCIsImEiOiJjampjbzhxYnEyM3ZlM3Z0ZWRncHVsOXEyIn0.G92w014uYkp64EiGScJH8Q";
 
@@ -64,6 +65,9 @@ const updateReady = (sw) => {
  * Fetch neighborhoods and cuisines as soon as the page is loaded.
  */
 document.addEventListener('DOMContentLoaded', (event) => {
+  if (!isConnected) {
+    showToast(`Viewing content in offline!!`);
+  }
   registerServiceWorker();
   initMap(); // added 
   fetchNeighborhoods();
@@ -224,7 +228,6 @@ const createRestaurantHTML = (restaurant) => {
   image.srcset = `/build/img/${imgsrc}.webp 1x, /build/img/${imgsrc}.jpg 2x`;
   image.alt = info;
   image.tabIndex = 0;
-
   li.append(image);
 
   const name = document.createElement('h2');
@@ -246,11 +249,42 @@ const createRestaurantHTML = (restaurant) => {
   more.setAttribute('role', 'button');
   more.setAttribute('aria-label', 'View Details');
   more.setAttribute('aria-pressed', 'false');
+  li.append(more);
 
-  li.append(more)
+  let is_favorite = ((restaurant.is_favorite === "true") || restaurant.is_favorite === true) ? true : false;
+  const favourite = document.createElement('button');
+  favourite.id = `btn_favourite_${restaurant.id}`;
+  favourite.className = `btn_favourite${is_favorite ? ' isFavourite' : ""}`;
+  favourite.innerHTML = `<svg width="24" height="24" class="unmark"><title/><desc/>
+  <g><title>background</title><rect fill="none" id="canvas_background_unmark_${restaurant.id}" height="402" width="582" y="-1" x="-1"/></g>
+  <g><title>Favourite</title><path id="common-star-favorite-bookmark-glyph_unmark_${restaurant.id}" fill="#e0e0e0" d="m11.98491,18.13638l-6.79837,4.86362l2.34983,-8.01246l-6.53637,-5.42578l7.94983,-0.06841l3.03508,-8.49335l2.95112,8.56177l8.06397,0l-6.56655,5.47856l2.34983,7.95967l-6.79837,-4.86362l0,0z"/></g></svg>
+  <svg width="24" height="24" class="mark"><title/><desc/>
+  <g><title>background</title><rect fill="none" id="canvas_background_mark_${restaurant.id}" height="402" width="582" y="-1" x="-1"/></g>
+  <g><title>Favourite</title><path id="common-star-favorite-bookmark-glyph_mark_${restaurant.id}" fill="#ff0000" d="m11.98491,18.13638l-6.79837,4.86362l2.34983,-8.01246l-6.53637,-5.42578l7.94983,-0.06841l3.03508,-8.49335l2.95112,8.56177l8.06397,0l-6.56655,5.47856l2.34983,7.95967l-6.79837,-4.86362l0,0z"/></g></svg>`;
+  favourite.setAttribute('aria-label', (is_favorite) ? `Mark ${restaurant.name} restaurant as not favourite` : `Mark ${restaurant.name} restaurant as favourite`);
+  favourite.setAttribute('aria-pressed', is_favorite);
+  favourite.tabIndex = 0;
+
+  favourite.addEventListener('click', (e) => {
+    let btn_favourite = document.getElementById(`btn_favourite_${restaurant.id}`);
+    btn_favourite.classList.toggle('isFavourite');
+    is_favorite = btn_favourite.classList.contains('isFavourite');
+    favourite.setAttribute('aria-label', is_favorite ? `Mark ${restaurant.name} restaurant as not favourite` : `Mark ${restaurant.name} restaurant as favourite`);
+    favourite.setAttribute('aria-pressed', is_favorite);
+    restaurant.is_favorite = is_favorite;
+    DBHelper.toggleFavBtn(restaurant).then(favourite => {
+      console.info(`Updated your favourite restaurant: ${JSON.stringify(favourite)}`);
+    }).catch(error => {
+      console.error(`Failed updating favourite restaurant: ${error.stack}`);
+    });
+  });
+  li.appendChild(favourite);
+
+
 
   return li
 };
+
 
 /**
  * Add markers for current restaurants to the map.
@@ -299,40 +333,54 @@ const toggleButton = (element) => {
   element.setAttribute("aria-pressed", !pressed);
 };
 
+const syncData = () => {
+  DBHelper.syncOutBoxData().then(outBoxData => {
+    if (outBoxData.length > 0) {
+      outBoxData.forEach(async (data) => {
+        console.info(`Syncing OutBox Data: ${JSON.stringify(data)}`);
+        let primaryKey, response;
+        primaryKey = data.createdAt;
+
+        if (Object.keys(data).indexOf('is_favorite') > -1) {
+          response = DBHelper.toggleFavBtn(data);
+        } else {
+          response = await DBHelper.addReview(data);
+        }
+
+        console.info(`Uploaded pending request ${JSON.stringify(response)}`);
+        response = await DBHelper.clearOutBoxData(primaryKey)
+        console.info(`Removed data from Outbox: ${response}`);
+      });
+    }
+  }).catch(error => {
+    console.error('outBoxData', error.stack);
+  });
+}
 
 const isOnline = (event) => {
   let toastMsg;
   if (event.type == "offline") {
     console.log(`You lost connection.`);
     toastMsg = `You lost connection.`
+    isConnected = false;
   }
 
   if (event.type == "online") {
     console.log(`You are now online.`);
-    toastMsg = `You are now online.`
-    DBHelper.syncOutBoxData().then(outBoxData => {
-      if (outBoxData.length > 0) {
-        outBoxData.forEach(async (data) => {
-          console.info(`Syncing OutBox Data: ${JSON.stringify(data)}`);
-          let createdAt = data.createdAt;
-          let response;
-          response = await DBHelper.addReview(data);
-          console.info(`Uploaded pending request ${JSON.stringify(response)}`);
-          response = await DBHelper.clearOutBoxData(createdAt)
-          console.info(`Removed data from Outbox: ${response}`);
-        });
-      }
-    }).catch(error => {
-      console.error('outBoxData', error.stack);
-    });
+    toastMsg = `You are now online.`;
+    isConnected = true;
+    syncData();
   }
-  
-  Snackbar.show({ 
-    text: toastMsg, 
-    actionText: 'OK', 
+  showToast(toastMsg);
+}
+
+const showToast = (toastMsg) => {
+  Snackbar.show({
+    text: toastMsg,
+    actionText: 'OK',
     actionTextColor: '#f44336',
     textColor: '#fff',
-    pos: 'bottom-center'	
+    pos: 'bottom-center'
   });
 }
 window.addEventListener('online', isOnline);

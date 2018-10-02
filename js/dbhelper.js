@@ -45,7 +45,7 @@ class DBHelper {
         const reviews_store = upgradeDb.createObjectStore(DBHelper.REVIEW_STORE, { keyPath: 'id' });
         reviews_store.createIndex('id', 'id');
         const outbox_data = upgradeDb.createObjectStore(DBHelper.OFFLINE_STORE, { keyPath: 'createdAt' });
-        outbox_data.createIndex('restaurant_id', 'restaurant_id');
+        outbox_data.createIndex('createdAt', 'createdAt');
       }
     });
   };
@@ -123,13 +123,6 @@ class DBHelper {
         console.info(`No internet, failed to upload review: ${error.stack}`);
         DBHelper.saveRestaurantReviews(review, DBHelper.OFFLINE_STORE).then(resp => {
           console.log(`Review will be uploaded automatically when connected to internet`);
-          Snackbar.show({
-            text: `Not connected, Review will be uploaded once re-connected!`,
-            actionText: 'OK',
-            textColor: '#fff',
-            actionTextColor: '#f44336',
-            pos: 'bottom-center'
-          });
           return resolve(review);
         }).catch(error => {
           console.error(`Failed to save review: ${error.stack}`);
@@ -139,18 +132,40 @@ class DBHelper {
     });
   }
 
+  static toggleFavBtn(restaurant) {
+    return new Promise((resolve, reject) => {
+      const apiEndpoint = `${DBHelper.DATABASE_URL}/restaurants/${restaurant.id}/?is_favorite=${restaurant.is_favorite}`;
+      DBHelper.mutateData(apiEndpoint, 'PUT').then(response => {
+        return resolve(response);
+      }).catch(error => {
+        DBHelper.saveRestaurantReviews(restaurant, DBHelper.OFFLINE_STORE).then(resp => {
+          console.log(`Your action will be updated once re-connected!`);
+          return resolve(restaurant);
+        }).catch(error => {
+          console.error(`Failed to save restaurant data: ${error.stack}`);
+          return reject(error);
+        });
+      })
+    });
+  }
+
   static mutateData(url, HttpMethod, object) {
     return new Promise((resolve, reject) => {
-      fetch(url, {
+      let reqObject = {
         method: HttpMethod,
-        body: JSON.stringify(object),
         headers: {
           'Content-Type': 'application/json',
         }
-      }).then(response => response.json()).then(response => {
+      }
+
+      if (object !== undefined || !object) {
+        reqObject['body'] = JSON.stringify(object);
+      }
+
+      fetch(url, reqObject).then(response => response.json()).then(response => {
         return resolve(response);
       }).catch(error => {
-        console.log('1', error.stack);
+        console.log('Mutation Failed', error.stack);
         return reject(error);
       })
     });
@@ -169,13 +184,6 @@ class DBHelper {
     }).catch(error => {
       // Oops!. Got an error from server
       console.log(`Unable to fetch review from server: ${error.stack}`);
-      Snackbar.show({
-        text: `You lost connection.`,
-        actionText: 'OK',
-        actionTextColor: '#f44336',
-        textColor: '#fff',
-        pos: 'bottom-center'
-      });
       DBHelper.getSavedReview(restaurant.id).then(reviews => {
         callback(null, reviews);
       })
@@ -264,9 +272,9 @@ class DBHelper {
         return Promise.all(reviews.map(review =>
           reviews_store.put(review))).catch(() => {
             tx.abort();
-            throw Error(`Reviews were not added to the ${storeName}`);
+            throw Error(`Pending request were not added to the ${storeName}`);
           }).then(() => {
-            console.log(`Reviews added to DB`);
+            console.log(`Pending request added to offline DB`);
           });
       });
       return resolve(promise);

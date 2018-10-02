@@ -1,11 +1,15 @@
 let restaurant;
 var newMap;
 const MAPBOX_API_KEY = "pk.eyJ1IjoiaXN0aWFxdWUxOCIsImEiOiJjampjbzhxYnEyM3ZlM3Z0ZWRncHVsOXEyIn0.G92w014uYkp64EiGScJH8Q";
+let isConnected = navigator.onLine;
 
 /**
  * Initialize map as soon as the page is loaded.
  */
 document.addEventListener('DOMContentLoaded', (event) => {
+  if (!isConnected) {
+    showToast(`Viewing content in offline!!`);
+  }
   initMap();
 });
 
@@ -75,6 +79,7 @@ const fetchRestaurantFromURL = (callback) => {
       DBHelper.fetchRestaurantReviews(self.restaurant, (error, reviews) => {
         DBHelper.syncOutBoxData().then(outBoxData => {
           if (outBoxData.length > 0) {
+            outBoxData = outBoxData.filter(obj => Object.keys(obj).indexOf('is_favorite') === -1)
             reviews.push(...outBoxData);
           }
 
@@ -99,6 +104,31 @@ const fetchRestaurantFromURL = (callback) => {
 const fillRestaurantHTML = (restaurant = self.restaurant) => {
   const name = document.getElementById('restaurant-name');
   name.innerHTML = restaurant.name;
+
+  let is_favorite = ((restaurant.is_favorite === "true") || restaurant.is_favorite === true) ? true : false;
+  const btn_favourite = document.querySelector('.btn_favourite');
+  btn_favourite.id = `btn_favourite_${restaurant.id}`;
+  btn_favourite.className = `btn_favourite${is_favorite ? ' isFavourite' : ""}`;
+  btn_favourite.setAttribute('aria-label', (is_favorite) ? `Mark ${restaurant.name} restaurant as not favourite` : `Mark ${restaurant.name} restaurant as favourite`);
+  btn_favourite.setAttribute('aria-pressed', is_favorite);
+
+  btn_favourite.addEventListener('click', (e) => {
+    if (!isConnected) {
+      showToast(`Not connected, Your action will be updated once re-connected!`);
+    }
+
+    btn_favourite.classList.toggle('isFavourite');
+    is_favorite = btn_favourite.classList.contains('isFavourite');
+    btn_favourite.setAttribute('aria-label', is_favorite ? `Mark ${restaurant.name} restaurant as not favourite` : `Mark ${restaurant.name} restaurant as favourite`);
+    btn_favourite.setAttribute('aria-pressed', is_favorite);
+    restaurant.is_favorite = is_favorite;
+    DBHelper.toggleFavBtn(restaurant).then(favourite => {
+      console.info(`Updated your favourite restaurant: ${JSON.stringify(favourite)}`);
+    }).catch(error => {
+      console.error(`Failed updating favourite restaurant: ${error.stack}`);
+      showToast(`Failed to save restaurant data`);
+    });
+  });
 
   const address = document.getElementById('restaurant-address');
   address.innerHTML = restaurant.address;
@@ -176,7 +206,7 @@ const createReviewHTML = (review) => {
   li.tabIndex = 0;
 
   const topDiv = document.createElement('div');
-  topDiv.setAttribute('id', 'head');
+  topDiv.setAttribute('id', `head`);
   const name = document.createElement('p');
   name.setAttribute('class', 'alignLeft');
   name.innerHTML = review.name;
@@ -252,6 +282,9 @@ document.getElementById('review-form').addEventListener('submit', (event) => {
   const updatedAt = Date.now();
   const review = { restaurant_id, name, rating, comments, createdAt, updatedAt };
 
+  if (!isConnected) {
+    showToast(`Not connected, Review will be uploaded once re-connected!`);
+  }
   DBHelper.addReview(review).then(response => {
     document.getElementById('review-form').reset();
     const ul = document.getElementById('reviews-list');
@@ -262,3 +295,57 @@ document.getElementById('review-form').addEventListener('submit', (event) => {
     ul.insertBefore(createReviewHTML(review), ul.childNodes[0]);
   });
 });
+
+
+const syncData = () => {
+  DBHelper.syncOutBoxData().then(outBoxData => {
+    if (outBoxData.length > 0) {
+      outBoxData.forEach(async (data) => {
+        console.info(`Syncing OutBox Data: ${JSON.stringify(data)}`);
+        let primaryKey, response;
+        primaryKey = data.createdAt;
+
+        if (Object.keys(data).indexOf('is_favorite') > -1) {
+          response = DBHelper.toggleFavBtn(data);
+        } else {
+          response = await DBHelper.addReview(data);
+        }
+
+        console.info(`Uploaded pending request ${JSON.stringify(response)}`);
+        response = await DBHelper.clearOutBoxData(primaryKey)
+        console.info(`Removed data from Outbox: ${response}`);
+      });
+    }
+  }).catch(error => {
+    console.error('outBoxData', error.stack);
+  });
+}
+
+const isOnline = (event) => {
+  let toastMsg;
+  if (event.type == "offline") {
+    console.log(`You lost connection.`);
+    toastMsg = `You lost connection.`
+    isConnected = false;
+  }
+
+  if (event.type == "online") {
+    console.log(`You are now online.`);
+    toastMsg = `You are now online.`;
+    isConnected = true;
+    syncData();
+  }
+  showToast(toastMsg);
+}
+
+const showToast = (toastMsg) => {
+  Snackbar.show({
+    text: toastMsg,
+    actionText: 'OK',
+    actionTextColor: '#f44336',
+    textColor: '#fff',
+    pos: 'bottom-center'
+  });
+}
+window.addEventListener('online', isOnline);
+window.addEventListener('offline', isOnline);
