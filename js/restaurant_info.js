@@ -79,6 +79,15 @@ const fetchRestaurantFromURL = (callback) => {
       DBHelper.fetchRestaurantReviews(self.restaurant, (error, reviews) => {
         DBHelper.syncOutBoxData().then(outBoxData => {
           if (outBoxData.length > 0) {
+            let restaurant = outBoxData.filter(obj => Object.keys(obj).indexOf('is_favorite') > -1);
+            if (restaurant.length > 0) {
+              restaurant.forEach(eachRestaurant => {
+                if ((eachRestaurant.id === id)) {
+                  self.restaurant = eachRestaurant;
+                }
+              })
+            }
+
             outBoxData = outBoxData.filter(obj => Object.keys(obj).indexOf('is_favorite') === -1)
             reviews.push(...outBoxData);
           }
@@ -273,6 +282,11 @@ const getParameterByName = (name, url) => {
 
 document.getElementById('review-form').addEventListener('submit', (event) => {
   event.preventDefault();
+
+  if (!isConnected) {
+    showToast(`Not connected, Review will be uploaded once re-connected!`);
+  }
+
   const restaurant_id = self.restaurant.id;
   const name = document.getElementById('reviewer-name').value;
   let rating = document.getElementById('rating-select');
@@ -282,9 +296,6 @@ document.getElementById('review-form').addEventListener('submit', (event) => {
   const updatedAt = Date.now();
   const review = { restaurant_id, name, rating, comments, createdAt, updatedAt };
 
-  if (!isConnected) {
-    showToast(`Not connected, Review will be uploaded once re-connected!`);
-  }
   DBHelper.addReview(review).then(response => {
     document.getElementById('review-form').reset();
     const ul = document.getElementById('reviews-list');
@@ -315,6 +326,7 @@ const syncData = () => {
         response = await DBHelper.clearOutBoxData(primaryKey)
         console.info(`Removed data from Outbox: ${response}`);
       });
+      showToast(`Your pending request uploaded successfully`);
     }
   }).catch(error => {
     console.error('outBoxData', error.stack);
@@ -347,5 +359,6 @@ const showToast = (toastMsg) => {
     pos: 'bottom-center'
   });
 }
+
 window.addEventListener('online', isOnline);
 window.addEventListener('offline', isOnline);

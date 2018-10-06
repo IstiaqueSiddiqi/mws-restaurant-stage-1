@@ -43,7 +43,7 @@ class DBHelper {
         const restaurant_store = upgradeDb.createObjectStore(DBHelper.RESTAURANT_STORE, { keyPath: 'id' });
         restaurant_store.createIndex('id', 'id');
         const reviews_store = upgradeDb.createObjectStore(DBHelper.REVIEW_STORE, { keyPath: 'id' });
-        reviews_store.createIndex('id', 'id');
+        reviews_store.createIndex('restaurant_id', 'restaurant_id', { unique: false });
         const outbox_data = upgradeDb.createObjectStore(DBHelper.OFFLINE_STORE, { keyPath: 'createdAt' });
         outbox_data.createIndex('createdAt', 'createdAt');
       }
@@ -55,38 +55,35 @@ class DBHelper {
    * Fetch all restaurants.
    */
   static fetchRestaurants(callback) {
-    DBHelper.getAllRestaurants().then(restaurants => {
-      // update UI
-      callback(null, restaurants);
-      // save data locally
-      DBHelper.saveRestaurantLocally(restaurants).then(data => {
-        console.log(`Fetched all restaurants data from server`)
+    if (isConnected) {
+      DBHelper.getAllRestaurants().then(restaurants => {
+        // update UI
+        callback(null, restaurants);
+        // save data locally
+        DBHelper.saveRestaurantLocally(restaurants).then(data => {
+          console.log(`Fetched all restaurants data from server`)
+        }).catch(error => {
+          console.error(`Failed to save restaurants locally: ${error.stack}`);
+        });
       }).catch(error => {
-        console.error(`Failed to save restaurants locally: ${error.stack}`);
+        // Oops!. Got an error from server
+        console.log(`Unable to fetch restaurants from server: ${error.stack}`);
+        DBHelper.getSavedRestaurantData().then(restaurants => {
+          console.info(`Fetched restaurant in offline`);
+          callback(null, restaurants);
+        })
       });
-    }).catch(error => {
-      // Oops!. Got an error from server
-      console.log(`Unable to fetch restaurants from server: ${error.stack}`);
+    } else {
       DBHelper.getSavedRestaurantData().then(restaurants => {
+        console.info(`Fetched restaurant in offline`);
         callback(null, restaurants);
       })
-    });
+    }
   }
 
   static getAllRestaurants() {
     return new Promise((resolve, reject) => {
       const apiEndpoint = `${DBHelper.DATABASE_URL}/restaurants`;
-      DBHelper.getServerData(apiEndpoint).then(response => {
-        return resolve(response);
-      }).catch(error => {
-        return reject(error);
-      })
-    });
-  }
-
-  static getRestaurantById(restaurant_id) {
-    return new Promise((resolve, reject) => {
-      const apiEndpoint = `${DBHelper.DATABASE_URL}/restaurants/${restaurant_id}`;
       DBHelper.getServerData(apiEndpoint).then(response => {
         return resolve(response);
       }).catch(error => {
@@ -138,13 +135,15 @@ class DBHelper {
       DBHelper.mutateData(apiEndpoint, 'PUT').then(response => {
         return resolve(response);
       }).catch(error => {
-        DBHelper.saveRestaurantReviews(restaurant, DBHelper.OFFLINE_STORE).then(resp => {
-          console.log(`Your action will be updated once re-connected!`);
-          return resolve(restaurant);
-        }).catch(error => {
-          console.error(`Failed to save restaurant data: ${error.stack}`);
-          return reject(error);
-        });
+        // save favorite to restaurant DB and outboxDB
+        DBHelper.saveRestaurantReviews(restaurant, DBHelper.OFFLINE_STORE)
+          .then(DBHelper.saveRestaurantLocally(restaurant)).then(restaurant => {
+            console.log(`Your action will be updated once re-connected!`);
+            return resolve(restaurant);
+          }).catch(error => {
+            console.error(`Failed to save restaurant data: ${error.stack}`);
+            return reject(error);
+          });
       })
     });
   }
@@ -172,22 +171,30 @@ class DBHelper {
   }
 
   static fetchRestaurantReviews(restaurant, callback) {
-    DBHelper.getRestaurantReviewById(restaurant.id).then(reviews => {
-      // update UI
-      callback(null, reviews);
-      // save data locally
-      DBHelper.saveRestaurantReviews(reviews, DBHelper.REVIEW_STORE).then(data => {
-        console.log(`Review from Server`);
+    if (isConnected) {
+      DBHelper.getRestaurantReviewById(restaurant.id).then(reviews => {
+        // update UI
+        callback(null, reviews);
+        // save data locally
+        DBHelper.saveRestaurantReviews(reviews, DBHelper.REVIEW_STORE).then(data => {
+          console.log(`Review from Server`);
+        }).catch(error => {
+          console.error(`Failed to save review locally: ${error.stack}`);
+        });
       }).catch(error => {
-        console.error(`Failed to save review locally: ${error.stack}`);
+        // Oops!. Got an error from server
+        console.log(`Unable to fetch review from server: ${error.stack}`);
+        DBHelper.getSavedReview(restaurant.id).then(reviews => {
+          console.info(`Fetched restaurant reviews in offline ${JSON.stringify(reviews)}`);
+          callback(null, reviews);
+        })
       });
-    }).catch(error => {
-      // Oops!. Got an error from server
-      console.log(`Unable to fetch review from server: ${error.stack}`);
+    } else {
       DBHelper.getSavedReview(restaurant.id).then(reviews => {
+        console.info(`Fetched restaurant reviews in offline ${JSON.stringify(reviews)}`);
         callback(null, reviews);
       })
-    });
+    }
   }
 
   static getSavedReview(restaurant_id) {
@@ -207,7 +214,7 @@ class DBHelper {
         let promise = DBHelper.openDB().then(db => {
           const tx = db.transaction(DBHelper.REVIEW_STORE, 'readonly');
           const reviews_store = tx.objectStore(DBHelper.REVIEW_STORE);
-          return reviews_store.get(restaurant_id);
+          return reviews_store.index('restaurant_id').getAll(restaurant_id);
         });
         return resolve(promise);
       }
@@ -274,7 +281,7 @@ class DBHelper {
             tx.abort();
             throw Error(`Pending request were not added to the ${storeName}`);
           }).then(() => {
-            console.log(`Pending request added to offline DB`);
+            console.log(`Reviews added to offline DB`);
           });
       });
       return resolve(promise);

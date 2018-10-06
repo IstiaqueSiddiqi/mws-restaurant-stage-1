@@ -266,6 +266,10 @@ const createRestaurantHTML = (restaurant) => {
   favourite.tabIndex = 0;
 
   favourite.addEventListener('click', (e) => {
+    if (!isConnected) {
+      showToast(`Not connected, your request will be uploaded once re-connected!`);
+    }
+
     let btn_favourite = document.getElementById(`btn_favourite_${restaurant.id}`);
     btn_favourite.classList.toggle('isFavourite');
     is_favorite = btn_favourite.classList.contains('isFavourite');
@@ -279,8 +283,6 @@ const createRestaurantHTML = (restaurant) => {
     });
   });
   li.appendChild(favourite);
-
-
 
   return li
 };
@@ -312,7 +314,6 @@ const addMarkersToMap = (restaurants = self.restaurants) => {
 }; */
 
 /*Accesibility*/
-
 const handleBtnClick = (event) => {
   toggleButton(event.target);
 };
@@ -350,12 +351,14 @@ const syncData = () => {
         console.info(`Uploaded pending request ${JSON.stringify(response)}`);
         response = await DBHelper.clearOutBoxData(primaryKey)
         console.info(`Removed data from Outbox: ${response}`);
+        showToast(`Your pending request uploaded successfully`);
       });
     }
   }).catch(error => {
     console.error('outBoxData', error.stack);
   });
 }
+
 
 const isOnline = (event) => {
   let toastMsg;
@@ -383,5 +386,6 @@ const showToast = (toastMsg) => {
     pos: 'bottom-center'
   });
 }
+
 window.addEventListener('online', isOnline);
 window.addEventListener('offline', isOnline);

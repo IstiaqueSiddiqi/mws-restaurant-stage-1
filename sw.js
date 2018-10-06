@@ -57,15 +57,24 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.open(staticCacheName).then((cache) => {
             return cache.match(event.request).then((response) => {
-                return response || fetch(event.request).then((response) => {
-                    if (response.status === 404) {
+                var promise = fetch(event.request).then((networkResponse) => {
+                    if (networkResponse.status === 404) {
                         return new Response(`Please check your service worker script path and scope path.`);
                     }
-                    cache.put(event.request, response.clone());
-                    return response;
-                }).catch(err => {
-                    return new Response(`Failed due to ${err}`);
-                });
+                    cache.put(event.request, networkResponse.clone());
+                    return networkResponse;
+                })
+                return response || promise;
+
+                // return response || fetch(event.request).then((response) => {
+                //     if (response.status === 404) {
+                //         return new Response(`Please check your service worker script path and scope path.`);
+                //     }
+                //     cache.put(event.request, response.clone());
+                //     return response;
+                // }).catch(err => {
+                //     return new Response(`Failed due to ${err}`);
+                // });
             });
         }).catch(error => {
             console.error('Error:', error.stack);
@@ -100,7 +109,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('sync', (event) => {
     // Should be unique for a given sync
     if (event.tag == 'myFirstSync') {
-        // event.waitUntil(promiseMethod());
         console.info(`Back Online`);
+        // event.waitUntil(promiseMethod());
     }
 });

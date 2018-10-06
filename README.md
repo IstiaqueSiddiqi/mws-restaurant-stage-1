@@ -18,5 +18,28 @@ In this stage connect the web app to an external server. Making app more resilie
 
 Finally, in this stage added functionality to allow users to create their own reviews. If the app is offline, save the users' data and submit users' data to the remote database until the user is connected. 
 
+## Setup And Installation Guide
 
+1. Install Node.js from Nodejs official webisite.
 
+2. Download node API server from https://github.com/udacity/mws-restaurant-stage-3
+    ``` 
+    # git clone https://github.com/udacity/mws-restaurant-stage-3
+    # cd mws-restaurant-stage-3
+    # npm i
+    # npm i sails -g
+    # node server
+    ```
+
+3. Download this repository from https://github.com/IstiaqueSiddiqi/mws-restaurant-stage-1
+    ```
+    # git clone https://github.com/IstiaqueSiddiqi/mws-restaurant-stage-1
+    # cd mws-restaurant-stage-1
+    # Run npm i from terminal
+    # Check Python verion in termminl: python -V
+    # If you have Python 2.x, spin up the server with python -m SimpleHTTPServer 8000 (or some other port, if port 8000 is already in use.) For Python 3.x, you can use python3 -m http.server 8000. If you don't have Python software download it from Python official website.
+    ```
+
+4. Ensure server is up and running parallel to Python server
+
+5. Visit http://localhost:8000
