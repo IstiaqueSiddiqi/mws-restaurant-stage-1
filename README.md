@@ -43,3 +43,6 @@ Finally, in this stage added functionality to allow users to create their own re
 4. Ensure server is up and running parallel to Python server
 
 5. Visit http://localhost:8000
+
+## Restaurant Reviews - PWA Demo
+![](screenshot/Restaurant-Reviews.gif)

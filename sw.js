@@ -56,6 +56,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.open(staticCacheName).then((cache) => {
+            // Uses network first and then cache approach
             return cache.match(event.request).then((response) => {
                 var promise = fetch(event.request).then((networkResponse) => {
                     if (networkResponse.status === 404) {
@@ -66,6 +67,7 @@ self.addEventListener('fetch', (event) => {
                 })
                 return response || promise;
 
+                // Uses cache first approach
                 // return response || fetch(event.request).then((response) => {
                 //     if (response.status === 404) {
                 //         return new Response(`Please check your service worker script path and scope path.`);
